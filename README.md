@@ -8,5 +8,6 @@ To install the project, use the following command:
 
 ```sh
 go get github.com/username/simple-bank
+```
 
 ![Simple Bank](doc/Simple%20Bank.png)
