@@ -42,3 +42,8 @@ func RandomCurrency() string {
 
 	return currencies[rand.Intn(n)]
 }
+
+// RandomEmail generates a random email string.
+func RandomEmail() string {
+	return RandomString(6) + "@gmail.com"
+}
