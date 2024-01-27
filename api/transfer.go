@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	db "github.com/techschool/simplebank/db/sqlc"
+	"github.com/techschool/simplebank/token"
 )
 
 type transferRequest struct {
@@ -23,8 +24,23 @@ func (server *Server) createTransfer(ctx *gin.Context) {
 		return
 	}
 
-	if !server.validAccount(ctx, req.FromAccountID, req.Currency) ||
-		!server.validAccount(ctx, req.ToAccountID, req.Currency) {
+	fromAccount, validFrom := server.validAccount(ctx, req.FromAccountID, req.Currency)
+	if !validFrom {
+		return
+	}
+
+	authPyload := ctx.MustGet(authorizationPayloadKey).(*token.Payload)
+	if fromAccount.Owner != authPyload.Username {
+		err := fmt.Errorf(
+			"account [%d] doesn't belong to the authenticated user",
+			req.FromAccountID,
+		)
+		ctx.JSON(http.StatusUnauthorized, errorResponse(err))
+		return
+	}
+
+	_, validTo := server.validAccount(ctx, req.ToAccountID, req.Currency)
+	if !validTo {
 		return
 	}
 
@@ -47,16 +63,16 @@ func (server *Server) validAccount(
 	ctx *gin.Context,
 	accountID int64,
 	currency string,
-) bool {
+) (db.Account, bool) {
 	account, err := server.store.GetAccount(ctx, accountID)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			ctx.JSON(http.StatusNotFound, errorResponse(err))
-			return false
+			return account, false
 		}
 
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
-		return false
+		return account, false
 	}
 
 	if account.Currency != currency {
@@ -67,8 +83,8 @@ func (server *Server) validAccount(
 			currency,
 		)
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
-		return false
+		return account, false
 	}
 
-	return true
+	return account, true
 }
